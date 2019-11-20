@@ -75,8 +75,6 @@ struct IGXI {
     //x0y0z0m1
     
     List<Buffer> data;
-    
-    static IGXI load()
 };
 ```
 
