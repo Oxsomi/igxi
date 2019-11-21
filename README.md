@@ -23,18 +23,25 @@ struct IGXI {
       	CONTAINS_DATA = 1 << 0
     };
     
+
+	//Versions
+	enum class Version : u32 {
+		INVALID,
+		V1
+	};
+    
     //24 bytes header
     struct Header {
         
         char8 header[4];	//IGXI
         
-        uint32 version;		//1 or higher
+        Version version;
         
         u16 width, height;
         
         u16 length, layers;
         
-        TextureFlags flags;				//& CONTAINS_DATA (1)
+        Flags flags;				//& CONTAINS_DATA (1)
         ignis::GPUMemoryUsage usage;
         ignis::TextureType type;
         u8 mips;					//How many mips are used (< maxMips(w,h,l))
