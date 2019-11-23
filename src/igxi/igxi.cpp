@@ -15,16 +15,23 @@ namespace igxi {
 
 		bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 
-			//oic::System::files()->read(file, )
-			//TODO:
+			if (!oic::System::files()->regionExists(file, length, start))
+				return true;
 
+			if (!oic::System::files()->read(file, addr, length, start))
+				return true;
+				
 			start += length;
+			return false;
 		}
 
 		bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
 
-			//TODO:
+			if (!oic::System::files()->regionExists(file, length, start))
+				return true;
+
 			start += length;
+			return false;
 		}
 
 	#endif
