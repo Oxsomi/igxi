@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-namespace igx {
+namespace igxi {
 
 	//Minimal core2 types & ignis enums predefined
 
