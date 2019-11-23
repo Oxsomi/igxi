@@ -1,19 +1,74 @@
 #include "igxi/igxi.hpp"
 #include <unordered_map>
 
-template<typename K, typename V>
-using HashMap = std::unordered_map<K, V>;
+#ifdef __USE_CORE2__
+	#include "system/system.hpp"
+	#include "system/local_file_system.hpp"
+#endif
 
-namespace igx {
+namespace igxi {
 
-	//TODO: Core2 impl
-	//TODO: Input params impl
+	#ifdef __USE_CORE2__
+	
+		void IGXI::FileLoader::start() {}
+		void IGXI::FileLoader::stop() {}
 
-	//void start();
-	//void stop();
+		bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 
-	////Read a region of a file into an address; returns true if out of bounds
-	//bool readRegion(Buffer &buf, usz start, usz length) const;
+			//oic::System::files()->read(file, )
+			//TODO:
+
+			start += length;
+		}
+
+		bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
+
+			//TODO:
+			start += length;
+		}
+
+	#endif
+
+	template<typename K, typename V>
+	using HashMap = std::unordered_map<K, V>;
+
+	//Input params constructor
+
+	IGXI::InputParams::InputParams(bool loadData) : loadData(loadData) {}
+
+	//Only load relevant GPUFormats, layers and mips into header or memory
+	//loadMultipleFormats is false by default; as mostly only one is needed
+	//startMip is 0 by default
+	//All layers are loaded by default; but you explicitly mention layers it will load
+	//If you don't specify a mip count, it will load all mips from startMip
+	IGXI::InputParams::InputParams(
+		const List<GPUFormat> &supportedFormats,
+		bool loadData,
+		bool loadMultipleFormats,
+		u32 startMip,
+		const List<u32> &layers,
+		u32 mipCount
+	) :
+		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
+		startMip(startMip), mipCount(mipCount), layers(layers) {}
+
+	//Only load relevant GPUFormats, layers and mips into header or memory
+	//loadMultipleFormats is false by default; as mostly only one is needed
+	//startMin is 0 by default
+	//startLayer is 0 by default
+	//If you don't specify a layer count, it will load all layers from startLayer
+	//If you don't specify a mip count, it will load all mips from startMip
+	IGXI::InputParams::InputParams(
+		const List<GPUFormat> &supportedFormats,
+		bool loadData,
+		bool loadMultipleFormats,
+		u32 startMip,
+		u32 startLayer,
+		u32 layerCount,
+		u32 mipCount
+	) :
+		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
+		startMip(startMip), mipCount(mipCount), startLayer(startLayer), layerCount(layerCount) {}
 
 	//A binary loader
 	struct BinaryLoader {
@@ -43,6 +98,90 @@ namespace igx {
 
 	};
 
+	inline usz getFormatBytes(GPUFormat format, IGXI::Header head) {
+
+		usz size{};
+
+		for (usz i = 0; i < head.mips; ++i) {
+
+			size += FormatHelper::getSizeBytes(format) * head.width * head.height * head.length * head.layers;
+
+			head.width = (u16)std::ceil(head.width / 2.f);
+			head.height = (u16)std::ceil(head.height / 2.f);
+			head.length = (u16)std::ceil(head.length / 2.f);
+		}
+
+		return size;
+	}
+
+	template<typename Loader>
+	inline IGXI::ErrorMessage loadFormats(
+		const Loader &loader, IGXI::Header head, IGXI &out, const IGXI::InputParams &input, const HashMap<usz, GPUFormat> &formats
+	) {
+
+		auto endMip = input.startMip + input.mipCount;
+
+		out.data.resize(formats.size());
+
+		usz j{};
+
+		for (auto &fmt : formats) {
+
+			usz src = fmt.first;
+			out.data[j].resize(out.header.mips);
+
+			for (usz i = 0; i < head.mips; ++i) {
+
+				usz perLayer = FormatHelper::getSizeBytes(fmt.second) * head.width * head.height * head.length;
+
+				if (i >= input.startMip && i < endMip) {
+
+					auto mip = out.data[j][i];
+					mip.resize(perLayer * out.header.layers);
+
+					//No layers masked out; so load all
+
+					if (!input.layers.size())
+						loader.readRegion(mip.data(), src, mip.size());
+
+					//Layers masked out; so fragmented
+					//Foreach layer do a copy
+
+					else {
+
+						usz dst{};
+
+						for (usz k = 0, l = input.layers.size(); k < l; ++k) {
+							usz src0 = src + perLayer * (usz(input.layers[k]) + input.startLayer);
+							loader.readRegion(mip.data() + dst, src0, perLayer);
+							dst += perLayer;
+						}
+
+					}
+
+				}
+				
+				//Skip a mip
+				else
+					src += perLayer * head.layers;
+
+				//Resize to next mip
+
+				head.width = (u16)std::ceil(head.width / 2.f);
+				head.height = (u16)std::ceil(head.height / 2.f);
+				head.length = (u16)std::ceil(head.length / 2.f);
+			}
+
+			++j;
+		}
+
+		return IGXI::ErrorMessage::SUCCESS;
+	}
+
+	inline u8 getMaxMips(u16 width, u16 height, u16 length) {
+		return u8(std::ceil(std::log2(std::fmax(width, std::fmax(height, length)))));
+	}
+
 	template<typename Loader>
 	inline IGXI::ErrorMessage loadData(const Loader &loader, IGXI &out, const IGXI::InputParams &input) {
 
@@ -58,7 +197,9 @@ namespace igx {
 			return IGXI::ErrorMessage::LOAD_INVALID_SIZE;
 
 		//Copy of header of the actual file; out.header is the output header (the data the output file includes)
-		auto head = out.header;
+		const auto head = out.header;
+
+		//Validate header
 
 		u8 sign[3]{ 0x44, 0x55, 0x66 };
 
@@ -72,14 +213,20 @@ namespace igx {
 			head.height == 0 ||
 			head.length == 0 ||
 			head.layers == 0 ||
-			head.mips == 0
-			//TODO: Check usage, type, mips (< max)
+			head.mips == 0 ||
+			head.usage > GPUMemoryUsage::ALL ||
+			head.mips > getMaxMips(head.width, head.height, head.length)
 		)
+			return IGXI::ErrorMessage::LOAD_INVALID_HEADER;
+
+		TextureType val = TextureType(u8(head.type) & ~u8(TextureType::PROPERTY_IS_ARRAY));
+
+		if(val > TextureType::TEXTURE_MS || (val > TextureType::TEXTURE_3D && val != TextureType::TEXTURE_MS))
 			return IGXI::ErrorMessage::LOAD_INVALID_HEADER;
 
 		//Find formats
 
-		bool noData = !(u8(head.flags) & u8(Flags::CONTAINS_DATA));
+		bool noData = !(u8(head.flags) & u8(Flags::CONTAINS_DATA)) || !input.loadData;
 
 		List<GPUFormat> availableFormats(head.formats);
 
@@ -98,8 +245,34 @@ namespace igx {
 			formats[loc] = format;
 		}
 
-		//TODO: Change number of mips and resolution depending on start mip and end mip in out.head
-		//TODO: Change number of layers depending on available layers in input struct in out.head
+		//Get real mip and layer count from input
+
+		if(input.startMip >= head.mips || input.layerStart >= head.layers)
+			return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
+
+		auto mips = out.header.mips = input.mipCount ? input.mipCount : head.mips - input.startMip;
+		auto layers = out.header.layers = input.layerCount ? input.layerCount : head.layers - input.layerStart;
+
+		if(input.startMip + mips > head.mips || input.layerStart + layers > head.layers)
+			return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
+
+		if (input.layers.size()) {
+
+			if(input.layers.size() > 0xFFFF)
+				return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
+
+			for(auto layer : input.layers)
+				if(layer > out.header.layers)
+					return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
+
+			out.header.layers = u16(input.layers.size());
+		}
+
+		for (usz i = 0; i < input.startMip; ++i) {
+			out.header.width = (u16)std::ceil(out.header.width / 2.f);
+			out.header.height = (u16)std::ceil(out.header.height / 2.f);
+			out.header.length = (u16)std::ceil(out.header.length / 2.f);
+		}
 
 		//Load first format
 		if (!input.loadMultipleFormats) {
@@ -177,7 +350,7 @@ namespace igx {
 
 	#endif
 
-		IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
+	IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
 		const BinaryLoader loader(buf);
 		return loadData(loader, out, ip);
 	}
