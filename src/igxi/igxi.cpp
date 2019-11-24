@@ -52,9 +52,9 @@ namespace igxi {
 		const List<GPUFormat> &supportedFormats,
 		bool loadData,
 		bool loadMultipleFormats,
-		u32 startMip,
-		const List<u32> &layers,
-		u32 mipCount
+		u8 startMip,
+		const List<u16> &layers,
+		u8 mipCount
 	) :
 		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
 		startMip(startMip), mipCount(mipCount), layers(layers) {}
@@ -69,10 +69,10 @@ namespace igxi {
 		const List<GPUFormat> &supportedFormats,
 		bool loadData,
 		bool loadMultipleFormats,
-		u32 startMip,
-		u32 startLayer,
-		u32 layerCount,
-		u32 mipCount
+		u8 startMip,
+		u16 startLayer,
+		u16 layerCount,
+		u8 mipCount
 	) :
 		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
 		startMip(startMip), mipCount(mipCount), startLayer(startLayer), layerCount(layerCount) {}
@@ -254,13 +254,13 @@ namespace igxi {
 
 		//Get real mip and layer count from input
 
-		if(input.startMip >= head.mips || input.layerStart >= head.layers)
+		if(input.startMip >= head.mips || input.startLayer >= head.layers)
 			return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
 
 		auto mips = out.header.mips = input.mipCount ? input.mipCount : head.mips - input.startMip;
-		auto layers = out.header.layers = input.layerCount ? input.layerCount : head.layers - input.layerStart;
+		auto layers = out.header.layers = input.layerCount ? input.layerCount : head.layers - input.startLayer;
 
-		if(input.startMip + mips > head.mips || input.layerStart + layers > head.layers)
+		if(input.startMip + mips > head.mips || input.startLayer + layers > head.layers)
 			return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
 
 		if (input.layers.size()) {
@@ -269,7 +269,7 @@ namespace igxi {
 				return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
 
 			for(auto layer : input.layers)
-				if(layer > out.header.layers)
+				if(layer >= out.header.layers)
 					return IGXI::ErrorMessage::LOAD_INVALID_RANGE;
 
 			out.header.layers = u16(input.layers.size());

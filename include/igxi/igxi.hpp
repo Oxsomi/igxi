@@ -150,10 +150,11 @@ namespace igxi {
 
 			//Layers to load (relative to layerStart)
 			//Can also include the same layer multiple times if you need it
-			List<u32> layers{};
+			List<u16> layers{};
 
-			u32 startLayer{}, layerCount{};	//Layer range to load
-			u32 startMip{}, mipCount{};
+			u16 startLayer{}, layerCount{};	//Layer range to load
+
+			u8 startMip{}, mipCount{};
 			
 			bool loadMultipleFormats{};
 			bool loadData = true;			//If false; won't try to load data (so you can get the header)
@@ -170,9 +171,9 @@ namespace igxi {
 				const List<GPUFormat> &supportedFormats,
 				bool loadData = true,
 				bool loadMultipleFormats = {},
-				u32 startMip = {},
-				const List<u32> &layers = {},
-				u32 mipCount = {}
+				u8 startMip = {},
+				const List<u16> &layers = {},
+				u8 mipCount = {}
 			);
 
 			//Only load relevant GPUFormats, layers and mips into header or memory
@@ -185,10 +186,10 @@ namespace igxi {
 				const List<GPUFormat> &supportedFormats,
 				bool loadData = true,
 				bool loadMultipleFormats = {},
-				u32 startMip = {},
-				u32 startLayer = {},
-				u32 layerCount = {},
-				u32 mipCount = {}
+				u8 startMip = {},
+				u16 startLayer = {},
+				u16 layerCount = {},
+				u8 mipCount = {}
 			);
 
 		};
