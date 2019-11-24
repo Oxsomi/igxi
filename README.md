@@ -65,8 +65,17 @@ core2 has two file types; `~/myPath.IGXI` and `./myPath.IGXI`.  The tilde `~` be
 ##### Implementation
 
 ```cpp
-void IGXI::FileLoader::start() {}
-void IGXI::FileLoader::stop() {}
+//Locks and unlocks the file system
+
+void IGXI::FileLoader::start() {
+	oic::System::files()->begin();
+}
+
+void IGXI::FileLoader::stop() {
+	oic::System::files()->end();
+}
+
+//Reads and checks file region for availability
 
 bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 

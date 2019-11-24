@@ -10,8 +10,15 @@ namespace igxi {
 
 	#ifdef __USE_CORE2__
 	
-		void IGXI::FileLoader::start() {}
-		void IGXI::FileLoader::stop() {}
+		void IGXI::FileLoader::start() {
+			oic::System::files()->begin();
+			//TODO: Lock file
+		}
+
+		void IGXI::FileLoader::stop() {
+			//TODO: Unlock file
+			oic::System::files()->end();
+		}
 
 		bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 
