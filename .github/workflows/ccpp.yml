@@ -10,6 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: cmake build
-      run: cmake . -G "Visual Studio 15 2017 Win64"
+      run: cmake . -G "MinGW Makefiles"
     - name: build
       run: cmake --build . -j 8
