@@ -9,11 +9,7 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-    - name: make build
-      run: mkdir builds
-    - name: cd build
-      run: cd builds
     - name: cmake build
-      run: cmake ../ -G "Unix Makefiles"
+      run: cmake . -G "Unix Makefiles" builds
     - name: build
-      run: cmake --build . -j 8
+      run: cmake --build builds -j 8
