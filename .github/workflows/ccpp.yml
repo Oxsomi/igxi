@@ -10,4 +10,10 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: make build
-      run: mkdir builds & cd builds & cmake ../ -G "Unix Makefiles" & cmake --build . -j 8
+      run: mkdir builds
+    - name: cd build
+      run: cd builds
+    - name: cmake build
+      run: cmake ../ -G "Unix Makefiles"
+    - name: build
+      run: cmake --build . -j 8
