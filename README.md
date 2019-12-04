@@ -3,7 +3,7 @@ The IGXI (Ignis Xtended Image) Format is used to store data that can immediately
 This format allows loading in multiple layers as well as a different base mip if specified (saving GPU memory for mobile; like specifying 4k images for desktop and then loading 256x, 512x or 1k images on mobile).
 It also supports multiple GPU formats, to ensure you can use different types of compression for the same image. This means you can also have a depth stencil saved (R32f + R8u formats in 1 texture). These GPU formats have to be unique, as you load based on GPU format (so asking for R32f would load the depth and R8u would load the stencil buffer).
 
-
+![](https://github.com/Nielsbishere/igxi/workflows/C%2FC++%20CI/badge.svg)
 
 ## Dependencies
 IGXI headers already include the ignis enums and core2 types that it uses; to avoid dependencies.
