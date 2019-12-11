@@ -3,23 +3,25 @@
 #include <vector>
 #include <string>
 
+//Minimal core2 types
+
+using u8 = uint8_t;
+using u16 = uint16_t;
+using u32 = uint32_t;
+using usz = size_t;
+
+using char8 = char;
+
+template<typename T>
+using List = std::vector<T>;
+
+using String = std::string;
+
+using Buffer = List<u8>;
+
 namespace igxi {
 
-	//Minimal core2 types & ignis enums predefined
-
-	using u8 = uint8_t;
-	using u16 = uint16_t;
-	using u32 = uint32_t;
-	using usz = size_t;
-
-	using char8 = char;
-
-	template<typename T>
-	using List = std::vector<T>;
-
-	using String = std::string;
-
-	using Buffer = List<u8>;
+	//ignis enums predefined
 
 	enum class GPUFormat : u16;
 	enum class GPUFormatType : u8;

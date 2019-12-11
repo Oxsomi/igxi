@@ -63,8 +63,9 @@ namespace igxi {
 		const List<u16> &layers,
 		u8 mipCount
 	) :
-		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
-		startMip(startMip), mipCount(mipCount), layers(layers) {}
+		supportedFormats(supportedFormats), layers(layers),
+		startMip(startMip), mipCount(mipCount),
+		loadMultipleFormats(loadMultipleFormats), loadData(loadData) {}
 
 	//Only load relevant GPUFormats, layers and mips into header or memory
 	//loadMultipleFormats is false by default; as mostly only one is needed
@@ -81,8 +82,9 @@ namespace igxi {
 		u16 layerCount,
 		u8 mipCount
 	) :
-		supportedFormats(supportedFormats), loadData(loadData), loadMultipleFormats(loadMultipleFormats),
-		startMip(startMip), mipCount(mipCount), startLayer(startLayer), layerCount(layerCount) {}
+		supportedFormats(supportedFormats), startLayer(startLayer), layerCount(layerCount),
+		startMip(startMip), mipCount(mipCount),
+		loadMultipleFormats(loadMultipleFormats), loadData(loadData) {}
 
 	//A binary loader
 	struct BinaryLoader {
@@ -133,7 +135,7 @@ namespace igxi {
 		const Loader &loader, IGXI::Header head, IGXI &out, const IGXI::InputParams &input, const HashMap<usz, GPUFormat> &formats
 	) {
 
-		auto endMip = input.startMip + input.mipCount;
+		u8 endMip = input.startMip + input.mipCount;
 
 		out.data.resize(formats.size());
 
