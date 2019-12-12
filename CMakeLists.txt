@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12.4)
 project(igxi)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -27,7 +29,7 @@ source_group("Headers" FILES ${igxiHpp})
 source_group("Source" FILES ${igxiCpp})
 
 if(MSVC)
-    target_compile_options(igxi PRIVATE /W4 /WX /MD /MP /wd26812)
+    target_compile_options(igxi PRIVATE /W4 /WX /MD /MP /wd26812 /wd4201)
 else()
     target_compile_options(igxi PRIVATE -Wall -Wextra -pedantic -Werror)
 endif()
