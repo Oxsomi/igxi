@@ -206,8 +206,7 @@ namespace igxi {
 		//Load from binary (always available)
 		static ErrorMessage load(const Buffer &buf, IGXI &out, const InputParams &ip);
 
-		//TODO:
-		//static ErrorMessage save();
+		//TODO: static ErrorMessage save();
 
 	};
 
