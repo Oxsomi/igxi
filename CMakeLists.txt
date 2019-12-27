@@ -29,9 +29,9 @@ source_group("Headers" FILES ${igxiHpp})
 source_group("Source" FILES ${igxiCpp})
 
 if(MSVC)
-    target_compile_options(igxi PRIVATE /W4 /WX /MD /MP /wd26812 /wd4201)
+    target_compile_options(igxi PRIVATE /W4 /WX /MD /MP /wd26812 /wd4201 /EHsc /GR)
 else()
-    target_compile_options(igxi PRIVATE -Wall -Wextra -pedantic -Werror)
+    target_compile_options(igxi PRIVATE -Wall -Wpedantic -Wextra -Werror)
 endif()
 
 # Optional dependency
