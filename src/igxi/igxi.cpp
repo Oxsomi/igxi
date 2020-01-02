@@ -41,6 +41,14 @@ namespace igxi {
 			return false;
 		}
 
+		usz IGXI::FileLoader::size() const {
+
+			if (!oic::System::files()->exists(file))
+				return 0;
+
+			return oic::System::files()->get(file).fileSize;
+		}
+
 	#endif
 
 	template<typename K, typename V>

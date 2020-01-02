@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <vector>
+#include <array>
 #include <string>
 
 //Minimal core2 types
@@ -10,10 +11,16 @@ using u16 = uint16_t;
 using u32 = uint32_t;
 using usz = size_t;
 
+using f32 = float;
+using f64 = double;
+
 using char8 = char;
 
 template<typename T>
 using List = std::vector<T>;
+
+template<typename T, usz N>
+using Array = std::array<T, N>;
 
 using String = std::string;
 
@@ -60,6 +67,9 @@ namespace igxi {
 			//Start has to be incremented with length by the implementation
 			bool checkRegion(usz &start, usz length) const;
 
+			//Get the size of a file (0 if non existent or if folder)
+			usz size() const;
+
 		};
 
 		//Flags defined in the header;
@@ -83,9 +93,9 @@ namespace igxi {
 
 			static constexpr u32 magicNumber = 0x49584749;	//IGXI
 
-			u32 header;
+			u32 header = magicNumber;
 
-			Version version;
+			Version version = Version::V1;
 
 			u16 width, height;
 
@@ -214,6 +224,7 @@ namespace igxi {
 
 	//format.hpp
 
+	//1 nibble (0x0-0xF)
 	//& 1			= isSigned
 	//& 2			= isUnnormalized
 	//& 4			= isFloatingPoint
@@ -222,12 +233,16 @@ namespace igxi {
 		UNORM,	SNORM,
 		UINT,	SINT,
 
-		FLOAT = 7
+		FLOAT = 7,
+
+		PROPERTY_IS_SIGNED = 1,
+		PROPERTY_IS_UNNORMALIZED = 2,
+		PROPERTY_IS_FLOATING_POINT = 4
 	};
 
 	//(& 3) + 1			= channel count
 	//1 << ((>> 2) & 3)	= channel stride
-	//(>> 4) & 0x7		= type
+	//(>> 4) & 0xF		= type
 	//& 0x10			= isSigned
 	//& 0x20			= isUnnormalized
 	//& 0x40			= isFloatingPoint

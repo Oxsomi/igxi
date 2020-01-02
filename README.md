@@ -38,8 +38,6 @@ Loading via a file loader is required if you want the benefits of skipping regio
 
 Especially for mobile devices, it is important that file loading is used to skip loading mips, layers and formats that aren't used by the GPU.
 
-
-
 `static ErrorMessage load(const String &fileName, IGXI &out, const InputParams &ip)`
 
 Call `igxi::IGXI::load` with a String your file loader understands and the output and input params:
@@ -97,6 +95,14 @@ bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
 	start += length;
 	return false;
 }
+
+usz IGXI::FileLoader::size() const {
+
+	if (!oic::System::files()->exists(file))
+		return 0;
+
+	return oic::System::files()->get(file).fileSize;
+}
 ```
 
 #### Custom
@@ -108,6 +114,8 @@ You can allocate `FileLoader::Data *data` in `FileLoader::start` and deallocate 
 `bool FileLoader::readRegion(void *addr, usz &start, usz length) const` has to be implemented and should return `true` if out of bounds and `false` if it read the file region correctly. If it read the file region correctly, it should increase the start by length. The file read should just copy directly to the address given, which will have enough space allocated (as long as the file read only reads length bytes).
 
 `bool checkRegion(usz &start, usz length) const` has to be implemented and should return `true` if out of bounds and `false` if it the file region exists. If the file region exists it should increase the start by length.
+
+`usz size() const` has to be implemented and should return a non-zero size for a file that has content. If the file doesn't exist or is a directory, this should return 0.
 
 See the default file read implementation for the basics.
 
