@@ -9,23 +9,18 @@
 namespace igxi {
 
 	#ifdef __USE_CORE2__
-	
+
 		void IGXI::FileLoader::start() {
-			oic::System::files()->begin();
-			//TODO: Lock file
+			data = (IGXI::FileLoader::Data*) oic::System::files()->open(file);
 		}
 
 		void IGXI::FileLoader::stop() {
-			//TODO: Unlock file
-			oic::System::files()->end();
+			oic::System::files()->close((oic::File*)data);
 		}
 
 		bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 
-			if (!oic::System::files()->regionExists(file, length, start))
-				return true;
-
-			if (!oic::System::files()->read(file, addr, length, start))
+			if (!((oic::File*)data)->read(addr, length, start))
 				return true;
 				
 			start += length;
@@ -34,7 +29,7 @@ namespace igxi {
 
 		bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
 
-			if (!oic::System::files()->regionExists(file, length, start))
+			if (!((oic::File*)data)->hasRegion(length, start))
 				return true;
 
 			start += length;
@@ -42,11 +37,7 @@ namespace igxi {
 		}
 
 		usz IGXI::FileLoader::size() const {
-
-			if (!oic::System::files()->exists(file))
-				return 0;
-
-			return oic::System::files()->get(file).fileSize;
+			return ((oic::File*)data)->size();
 		}
 
 	#endif
@@ -368,8 +359,15 @@ namespace igxi {
 	#if defined(__IGXI_CUSTOM_FILE_LOADER__) || defined(__USE_CORE2__)
 
 		IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
-			const IGXI::FileLoader loader(file);
-			return loadData(loader, out, ip);
+
+			try {
+
+				const IGXI::FileLoader loader(file);
+				return loadData(loader, out, ip);
+
+			} catch (std::runtime_error) {
+				return IGXI::ErrorMessage::LOAD_INVALID_FILE;
+			}
 		}
 
 	#endif

@@ -57,9 +57,6 @@ namespace igxi {
 				stop();
 			}
 
-			void start();
-			void stop();
-
 			//Read a region of a file into an address; returns true if out of bounds
 			//Start has to be incremented with length by the implementation
 			bool readRegion(void *addr, usz &start, usz length) const;
@@ -71,6 +68,10 @@ namespace igxi {
 			//Get the size of a file (0 if non existent or if folder)
 			usz size() const;
 
+		private:
+
+			void start();
+			void stop();
 		};
 
 		//Flags defined in the header;
@@ -151,6 +152,7 @@ namespace igxi {
 			SUCCESS,
 			LOAD_INVALID_HEADER,			//IGXI has invalid header (might not be IGXI)
 			LOAD_INVALID_SIZE,				//IGXI has invalid size
+			LOAD_INVALID_FILE,
 			LOAD_NO_AVAILABLE_FORMATS,		//There were no formats or none that matched
 			LOAD_INVALID_RANGE,				//Invalid range was requested
 		};
