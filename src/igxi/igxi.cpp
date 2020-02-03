@@ -520,12 +520,12 @@ namespace igxi {
 			}
 		}
 
-		IGXI::ErrorMessage IGXI::save(IGXI &out, const String &file, const InputParams &ip){
+		IGXI::ErrorMessage IGXI::save(const IGXI &out, const String &file){
 
 			try {
 
 				const IGXI::File f(file, true);
-				return loadData(f, out, ip);
+				return saveData(f, out);
 
 			} catch (std::runtime_error) {
 				return IGXI::ErrorMessage::SAVE_INVALID_FILE;
