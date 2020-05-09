@@ -405,7 +405,7 @@ namespace igxi {
 
 
 	template<typename File>
-	inline IGXI::ErrorMessage saveData(const File &file, const IGXI &in) {
+	inline IGXI::ErrorMessage saveData(File &file, const IGXI &in) {
 
 		//Validate header
 
@@ -496,6 +496,7 @@ namespace igxi {
 			usz i {};
 			for (GPUFormat format : in.format) {
 
+				format;
 				auto &dat = in.data[i];
 
 				for (usz j = 0; j < head.mips; ++j)
@@ -527,7 +528,7 @@ namespace igxi {
 
 			try {
 
-				const IGXI::File f(file, true);
+				IGXI::File f(file, true);
 				return saveData(f, out);
 
 			} catch (std::runtime_error) {
@@ -538,13 +539,13 @@ namespace igxi {
 	#endif
 
 	IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
-		const BinaryFile file((Buffer&)buf);
+		BinaryFile file((Buffer&)buf);
 		return loadData(file, out, ip);
 	}
 
 
 	IGXI::ErrorMessage IGXI::save(const IGXI &in, Buffer &buf) {
-		const BinaryFile file(buf);
+		BinaryFile file(buf);
 		return saveData(file, in);
 	}
 }
