@@ -1,5 +1,8 @@
 #include "igxi/igxi.hpp"
 #include <unordered_map>
+#include <cstring>
+#include <cmath>
+#include <algorithm>
 
 #ifdef __USE_CORE2__
 	#include "system/system.hpp"
@@ -97,7 +100,7 @@ namespace igxi {
 			if (start + length > file.size())
 				return true;
 
-			memcpy(addr, file.data() + start, length);
+			std::memcpy(addr, file.data() + start, length);
 			start += length;
 			return false;
 		}
@@ -222,7 +225,7 @@ namespace igxi {
 			head.header != Header::magicNumber ||
 			head.version != Version::V1 ||
 			head.flags > Flags::ALL ||
-			memcmp(head.signature, sign, sizeof(sign)) != 0 ||
+			std::memcmp(head.signature, sign, sizeof(sign)) != 0 ||
 			head.formats == 0 ||
 			head.width == 0 ||
 			head.height == 0 ||
@@ -365,7 +368,7 @@ namespace igxi {
 				const IGXI::FileLoader loader(file);
 				return loadData(loader, out, ip);
 
-			} catch (std::runtime_error) {
+			} catch (std::runtime_error&) {
 				return IGXI::ErrorMessage::LOAD_INVALID_FILE;
 			}
 		}
