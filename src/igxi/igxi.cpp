@@ -1,63 +1,65 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 #include "igxi/igxi.hpp"
 #include <unordered_map>
-#include <cstring>
-#include <cmath>
-#include <algorithm>
+#include "system/system.hpp"
+#include "system/local_file_system.hpp"
+#include "system/log.hpp"
 
-#ifdef __USE_CORE2__
-	#include "system/system.hpp"
-	#include "system/local_file_system.hpp"
-#endif
+using namespace ignis;
 
 namespace igxi {
 
-	#ifdef __USE_CORE2__
+	void IGXI::File::start(bool isWritable) {
+		(oic::File*&)data = oic::System::files()->open(file, isWritable ? oic::FileFlags::READ_WRITE : oic::FileFlags::READ);
+		oicAssert("IGXI::File required", data);
+	}
 
-		void IGXI::File::start(bool) {
-			data = (IGXI::File::Data*) oic::System::files()->open(file);
-		}
+	void IGXI::File::stop() {
+		oic::System::files()->close((oic::File*)data);
+		data = nullptr;
+	}
 
-		void IGXI::File::stop() {
-			oic::System::files()->close((oic::File*)data);
-		}
+	bool IGXI::File::resize(usz length) {
+		return !((oic::File*)data)->resize(length);
+	}
 
-		bool IGXI::File::readRegion(void *addr, usz &start, usz length) const {
+	bool IGXI::File::readRegion(void *addr, usz &start, usz length) const {
 
-			if (!((oic::File*)data)->read(addr, length, start))
-				return true;
-				
-			start += length;
-			return false;
-		}
+		if (!oic::System::files()->regionExists(file, length, start))
+			return true;
 
-		bool IGXI::File::writeRegion(const void *addr, usz &start, usz length) {
+		if (!((oic::File*)data)->read(addr, length, start))
+			return true;
+			
+		start += length;
+		return false;
+	}
 
-			if (!((oic::File*)data)->write(addr, length, start))
-				return true;
-				
-			start += length;
-			return false;
-		}
+	bool IGXI::File::writeRegion(const void *addr, usz &start, usz length) {
 
-		bool IGXI::File::resize(usz length) {
-			return !((oic::File*)data)->resize(length);
-		}
+		if (!((oic::File*)data)->write(addr, length, start))
+			return true;
+			
+		start += length;
+		return false;
+	}
 
-		bool IGXI::File::checkRegion(usz &start, usz length) const {
+	bool IGXI::File::checkRegion(usz &start, usz length) const {
 
-			if (!((oic::File*)data)->hasRegion(length, start))
-				return true;
+		if (!oic::System::files()->regionExists(file, length, start))
+			return true;
 
-			start += length;
-			return false;
-		}
+		start += length;
+		return false;
+	}
 
-		usz IGXI::File::size() const {
-			return ((oic::File*)data)->size();
-		}
+	usz IGXI::File::size() const {
 
-	#endif
+		if (!oic::System::files()->exists(file))
+			return 0;
+
+		return oic::System::files()->get(file).fileSize;
+	}
 
 	template<typename K, typename V>
 	using HashMap = std::unordered_map<K, V>;
@@ -511,33 +513,29 @@ namespace igxi {
 		return IGXI::ErrorMessage::SUCCESS;
 	}
 
-	#if defined(__IGXI_CUSTOM_FILE_LOADER__) || defined(__USE_CORE2__)
+	IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
 
-		IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
+		try {
 
-			try {
+			const IGXI::File f(file, false);
+			return loadData(f, out, ip);
 
-				const IGXI::File f(file, false);
-				return loadData(f, out, ip);
-
-			} catch (std::runtime_error&) {
-				return IGXI::ErrorMessage::LOAD_INVALID_FILE;
-			}
+		} catch (std::runtime_error&) {
+			return IGXI::ErrorMessage::LOAD_INVALID_FILE;
 		}
+	}
 
-		IGXI::ErrorMessage IGXI::save(const IGXI &out, const String &file){
+	IGXI::ErrorMessage IGXI::save(const IGXI &out, const String &file){
 
-			try {
+		try {
 
-				IGXI::File f(file, true);
-				return saveData(f, out);
+			IGXI::File f(file, true);
+			return saveData(f, out);
 
-			} catch (std::runtime_error) {
-				return IGXI::ErrorMessage::SAVE_INVALID_FILE;
-			}
+		} catch (std::runtime_error) {
+			return IGXI::ErrorMessage::SAVE_INVALID_FILE;
 		}
-
-	#endif
+	}
 
 	IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
 		BinaryFile file((Buffer&)buf);
