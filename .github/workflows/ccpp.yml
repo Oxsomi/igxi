@@ -4,11 +4,14 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: Windows build
+
+    name: Windows opengl build
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v1
+      with:
+        submodules: recursive
     - name: cmake build
-      run: cmake . -G "Visual Studio 16 2019"
+      run: cmake . -G "Visual Studio 16 2019" -A x64 -DgraphicsApi=opengl -DdoShaderRecreate=FALSE
     - name: build
       run: cmake --build . -j 8
