@@ -1,55 +1,49 @@
 #include "igxi/igxi.hpp"
 #include <unordered_map>
+#include "system/system.hpp"
+#include "system/local_file_system.hpp"
 
-#ifdef __USE_CORE2__
-	#include "system/system.hpp"
-	#include "system/local_file_system.hpp"
-#endif
+using namespace ignis;
 
 namespace igxi {
 
-	#ifdef __USE_CORE2__
-	
-		void IGXI::FileLoader::start() {
-			oic::System::files()->begin();
-			//TODO: Lock file
-		}
+	void IGXI::FileLoader::start() {
+		(oic::File*&)data = oic::System::files()->open(file);
+	}
 
-		void IGXI::FileLoader::stop() {
-			//TODO: Unlock file
-			oic::System::files()->end();
-		}
+	void IGXI::FileLoader::stop() {
+		oic::System::files()->close((oic::File*)data);
+		data = nullptr;
+	}
 
-		bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
+	bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
 
-			if (!oic::System::files()->regionExists(file, length, start))
-				return true;
+		if (!oic::System::files()->regionExists(file, length, start))
+			return true;
 
-			if (!oic::System::files()->read(file, addr, length, start))
-				return true;
-				
-			start += length;
-			return false;
-		}
+		if (!((oic::File*)data)->read(addr, length, start))
+			return true;
+			
+		start += length;
+		return false;
+	}
 
-		bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
+	bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
 
-			if (!oic::System::files()->regionExists(file, length, start))
-				return true;
+		if (!oic::System::files()->regionExists(file, length, start))
+			return true;
 
-			start += length;
-			return false;
-		}
+		start += length;
+		return false;
+	}
 
-		usz IGXI::FileLoader::size() const {
+	usz IGXI::FileLoader::size() const {
 
-			if (!oic::System::files()->exists(file))
-				return 0;
+		if (!oic::System::files()->exists(file))
+			return 0;
 
-			return oic::System::files()->get(file).fileSize;
-		}
-
-	#endif
+		return oic::System::files()->get(file).fileSize;
+	}
 
 	template<typename K, typename V>
 	using HashMap = std::unordered_map<K, V>;
@@ -365,14 +359,10 @@ namespace igxi {
 		}
 	}
 
-	#if defined(__IGXI_CUSTOM_FILE_LOADER__) || defined(__USE_CORE2__)
-
-		IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
-			const IGXI::FileLoader loader(file);
-			return loadData(loader, out, ip);
-		}
-
-	#endif
+	IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
+		const IGXI::FileLoader loader(file);
+		return loadData(loader, out, ip);
+	}
 
 	IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
 		const BinaryLoader loader(buf);

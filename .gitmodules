@@ -1,0 +1,3 @@
+[submodule "ignis"]
+	path = ignis
+	url = https://github.com/Oxsomi/ignis
