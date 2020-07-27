@@ -1,22 +1,29 @@
+#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 #include "igxi/igxi.hpp"
 #include <unordered_map>
 #include "system/system.hpp"
 #include "system/local_file_system.hpp"
+#include "system/log.hpp"
 
 using namespace ignis;
 
 namespace igxi {
 
-	void IGXI::FileLoader::start() {
-		(oic::File*&)data = oic::System::files()->open(file);
+	void IGXI::File::start(bool isWritable) {
+		(oic::File*&)data = oic::System::files()->open(file, isWritable ? oic::FileFlags::READ_WRITE : oic::FileFlags::READ);
+		oicAssert("IGXI::File required", data);
 	}
 
-	void IGXI::FileLoader::stop() {
+	void IGXI::File::stop() {
 		oic::System::files()->close((oic::File*)data);
 		data = nullptr;
 	}
 
-	bool IGXI::FileLoader::readRegion(void *addr, usz &start, usz length) const {
+	bool IGXI::File::resize(usz length) {
+		return !((oic::File*)data)->resize(length);
+	}
+
+	bool IGXI::File::readRegion(void *addr, usz &start, usz length) const {
 
 		if (!oic::System::files()->regionExists(file, length, start))
 			return true;
@@ -28,7 +35,16 @@ namespace igxi {
 		return false;
 	}
 
-	bool IGXI::FileLoader::checkRegion(usz &start, usz length) const {
+	bool IGXI::File::writeRegion(const void *addr, usz &start, usz length) {
+
+		if (!((oic::File*)data)->write(addr, length, start))
+			return true;
+			
+		start += length;
+		return false;
+	}
+
+	bool IGXI::File::checkRegion(usz &start, usz length) const {
 
 		if (!oic::System::files()->regionExists(file, length, start))
 			return true;
@@ -37,7 +53,7 @@ namespace igxi {
 		return false;
 	}
 
-	usz IGXI::FileLoader::size() const {
+	usz IGXI::File::size() const {
 
 		if (!oic::System::files()->exists(file))
 			return 0;
@@ -89,23 +105,28 @@ namespace igxi {
 		loadMultipleFormats(loadMultipleFormats), loadData(loadData) {}
 
 	//A binary loader
-	struct BinaryLoader {
+	struct BinaryFile {
 
-		const Buffer file;
+		Buffer file;
 
-		BinaryLoader(const Buffer &buf) : file(buf) { }
+		inline BinaryFile(Buffer &buf) : file(buf) { }
 
-		bool readRegion(void *addr, usz &start, usz length) const {
+		inline bool resize(usz length) {
+			file.resize(length);
+			return false;
+		}
+
+		inline bool readRegion(void *addr, usz &start, usz length) const {
 
 			if (start + length > file.size())
 				return true;
 
-			memcpy(addr, file.data() + start, length);
+			std::memcpy(addr, file.data() + start, length);
 			start += length;
 			return false;
 		}
 
-		bool checkRegion(usz &start, usz length) const {
+		inline bool checkRegion(usz &start, usz length) const {
 
 			if (start + length > file.size())
 				return true;
@@ -114,7 +135,34 @@ namespace igxi {
 			return true;
 		}
 
+		inline bool writeRegion(const void *addr, usz &start, usz length) {
+
+			if (start + length > file.size())
+				return true;
+
+			std::memcpy(file.data() + start, addr, length);
+
+			start += length;
+			return false;
+		}
+
 	};
+
+	inline List<usz> getFormatSizes(GPUFormat format, IGXI::Header head) {
+
+		List<usz> sizes(head.mips);
+
+		for (usz i = 0; i < head.mips; ++i) {
+
+			sizes[i] = FormatHelper::getSizeBytes(format) * head.width * head.height * head.length * head.layers;
+
+			head.width = (u16)std::ceil(head.width / 2.f);
+			head.height = (u16)std::ceil(head.height / 2.f);
+			head.length = (u16)std::ceil(head.length / 2.f);
+		}
+
+		return sizes;
+	}
 
 	inline usz getFormatBytes(GPUFormat format, IGXI::Header head) {
 
@@ -132,9 +180,9 @@ namespace igxi {
 		return size;
 	}
 
-	template<typename Loader>
+	template<typename File>
 	inline IGXI::ErrorMessage loadFormats(
-		const Loader &loader, IGXI::Header head, IGXI &out, const IGXI::InputParams &input, const HashMap<usz, GPUFormat> &formats
+		const File &file, IGXI::Header head, IGXI &out, const IGXI::InputParams &input, const HashMap<usz, GPUFormat> &formats
 	) {
 
 		u8 endMip = input.startMip + input.mipCount;
@@ -160,7 +208,7 @@ namespace igxi {
 					//No layers masked out; so load all
 
 					if (!input.layers.size())
-						loader.readRegion(mip.data(), src, mip.size());
+						file.readRegion(mip.data(), src, mip.size());
 
 					//Layers masked out; so fragmented
 					//Foreach layer do a copy
@@ -171,7 +219,7 @@ namespace igxi {
 
 						for (usz k = 0, l = input.layers.size(); k < l; ++k) {
 							usz src0 = src + perLayer * (usz(input.layers[k]) + input.startLayer);
-							loader.readRegion(mip.data() + dst, src0, perLayer);
+							file.readRegion(mip.data() + dst, src0, perLayer);
 							dst += perLayer;
 						}
 
@@ -200,8 +248,8 @@ namespace igxi {
 		return u8(std::ceil(std::log2(std::fmax(width, std::fmax(height, length)))));
 	}
 
-	template<typename Loader>
-	inline IGXI::ErrorMessage loadData(const Loader &loader, IGXI &out, const IGXI::InputParams &input) {
+	template<typename File>
+	inline IGXI::ErrorMessage loadData(const File &file, IGXI &out, const IGXI::InputParams &input) {
 
 		//Read header
 
@@ -211,7 +259,7 @@ namespace igxi {
 
 		usz start{};
 
-		if (loader.readRegion(&out.header, start, sizeof(Header)))
+		if (file.readRegion(&out.header, start, sizeof(Header)))
 			return IGXI::ErrorMessage::LOAD_INVALID_SIZE;
 
 		//Copy of header of the actual file; out.header is the output header (the data the output file includes)
@@ -219,13 +267,13 @@ namespace igxi {
 
 		//Validate header
 
-		u8 sign[3]{ 0x44, 0x55, 0x66 };
+		static constexpr u8 sign[3]{ 0x44, 0x55, 0x66 };
 
 		if(
 			head.header != Header::magicNumber ||
 			head.version != Version::V1 ||
 			head.flags > Flags::ALL ||
-			memcmp(head.signature, sign, sizeof(sign)) != 0 ||
+			std::memcmp(head.signature, sign, sizeof(sign)) != 0 ||
 			head.formats == 0 ||
 			head.width == 0 ||
 			head.height == 0 ||
@@ -235,12 +283,12 @@ namespace igxi {
 			head.usage > GPUMemoryUsage::ALL ||
 			head.mips > getMaxMips(head.width, head.height, head.length)
 		)
-			return IGXI::ErrorMessage::LOAD_INVALID_HEADER;
+			return IGXI::ErrorMessage::INVALID_HEADER;
 
 		TextureType val = TextureType(u8(head.type) & ~u8(TextureType::PROPERTY_IS_ARRAY));
 
 		if(val > TextureType::TEXTURE_MS || (val > TextureType::TEXTURE_3D && val != TextureType::TEXTURE_MS))
-			return IGXI::ErrorMessage::LOAD_INVALID_HEADER;
+			return IGXI::ErrorMessage::INVALID_HEADER;
 
 		//Find formats
 
@@ -248,7 +296,7 @@ namespace igxi {
 
 		List<GPUFormat> availableFormats(head.formats);
 
-		if(loader.readRegion(availableFormats.data(), start, sizeof(GPUFormat) * head.formats))
+		if(file.readRegion(availableFormats.data(), start, sizeof(GPUFormat) * head.formats))
 			return IGXI::ErrorMessage::LOAD_INVALID_SIZE;
 
 		HashMap<usz, GPUFormat> formats;
@@ -257,7 +305,7 @@ namespace igxi {
 
 			usz loc = start;
 
-			if(loader.checkRegion(start, getFormatBytes(format, head)))
+			if(file.checkRegion(start, getFormatBytes(format, head)))
 				return IGXI::ErrorMessage::LOAD_INVALID_SIZE;
 
 			formats[loc] = format;
@@ -315,7 +363,7 @@ namespace igxi {
 			if(noData)
 				return IGXI::ErrorMessage::SUCCESS;
 
-			return loadFormats(loader, head, out, input, { *fmt });
+			return loadFormats(file, head, out, input, { *fmt });
 		}
 
 		//Load multiple formats
@@ -341,7 +389,7 @@ namespace igxi {
 				if(noData)
 					return IGXI::ErrorMessage::SUCCESS;
 
-				return loadFormats(loader, head, out, input, fmts);
+				return loadFormats(file, head, out, input, fmts);
 			}
 
 			//Load all formats
@@ -353,19 +401,150 @@ namespace igxi {
 				if(noData)
 					return IGXI::ErrorMessage::SUCCESS;
 
-				return loadFormats(loader, head, out, input, formats);
+				return loadFormats(file, head, out, input, formats);
 			}
-
 		}
 	}
 
+
+	template<typename File>
+	inline IGXI::ErrorMessage saveData(File &file, const IGXI &in) {
+
+		//Validate header
+
+		using Header = IGXI::Header;
+		using Version = IGXI::Version;
+		using Flags = IGXI::Flags;
+
+		const Header &head = in.header;
+		static constexpr u8 sign[3]{ 0x44, 0x55, 0x66 };
+
+		if(
+			head.header != Header::magicNumber ||
+			head.version != Version::V1 ||
+			head.flags > Flags::ALL ||
+			memcmp(head.signature, sign, sizeof(sign)) != 0 ||
+			head.formats == 0 ||
+			head.width == 0 ||
+			head.height == 0 ||
+			head.length == 0 ||
+			head.layers == 0 ||
+			head.mips == 0 ||
+			head.usage > GPUMemoryUsage::ALL ||
+			head.mips > getMaxMips(head.width, head.height, head.length) ||
+			head.formats != in.format.size()
+		)
+			return IGXI::ErrorMessage::INVALID_HEADER;
+
+		TextureType val = TextureType(u8(head.type) & ~u8(TextureType::PROPERTY_IS_ARRAY));
+
+		if(val > TextureType::TEXTURE_MS || (val > TextureType::TEXTURE_3D && val != TextureType::TEXTURE_MS))
+			return IGXI::ErrorMessage::INVALID_HEADER;
+
+		//Validate data
+
+		const bool containsData = u8(head.flags) & u8(Flags::CONTAINS_DATA);
+
+		if (containsData) {
+
+			if (in.data.size() != in.format.size())
+				return IGXI::ErrorMessage::SAVE_INVALID_FORMATS;
+
+			usz i {};
+			for (GPUFormat format : in.format) {
+
+				auto &dat = in.data[i];
+
+				if (dat.size() != head.mips)
+					return IGXI::ErrorMessage::SAVE_INVALID_MIPS;
+
+				auto formatSizes = getFormatSizes(format, head);
+
+				for (usz j = 0; j < head.mips; ++j)
+					if (dat[j].size() != formatSizes[j])
+						return IGXI::ErrorMessage::SAVE_INVALID_DATA_SIZE;
+
+				++i;
+			}
+		}
+
+		//Reserve size for file
+
+		usz bufferSize = sizeof(Header) + sizeof(GPUFormat) * head.formats;
+
+		if (containsData) {
+			for (GPUFormat format : in.format)
+				bufferSize += getFormatBytes(format, head);
+		}
+
+		if (file.resize(bufferSize))
+			return IGXI::ErrorMessage::SAVE_NO_SPACE;
+
+		//Write header
+
+		usz start{};
+
+		if (file.writeRegion(&head, start, sizeof(Header)))
+			return IGXI::ErrorMessage::SAVE_FILE_ACCESS;
+
+		//Find formats
+
+		if (file.writeRegion(in.format.data(), start, sizeof(GPUFormat) * head.formats))
+			return IGXI::ErrorMessage::SAVE_FILE_ACCESS;
+
+		//Check in.data
+
+		if (containsData) {
+
+			usz i {};
+			for (GPUFormat format : in.format) {
+
+				format;
+				auto &dat = in.data[i];
+
+				for (usz j = 0; j < head.mips; ++j)
+					if (!file.writeRegion(dat[j].data(), start, dat[j].size()))
+						return IGXI::ErrorMessage::SAVE_FILE_ACCESS;
+
+				++i;
+			}
+		}
+
+		return IGXI::ErrorMessage::SUCCESS;
+	}
+
 	IGXI::ErrorMessage IGXI::load(const String &file, IGXI &out, const InputParams &ip){
-		const IGXI::FileLoader loader(file);
-		return loadData(loader, out, ip);
+
+		try {
+
+			const IGXI::File f(file, false);
+			return loadData(f, out, ip);
+
+		} catch (std::runtime_error&) {
+			return IGXI::ErrorMessage::LOAD_INVALID_FILE;
+		}
+	}
+
+	IGXI::ErrorMessage IGXI::save(const IGXI &out, const String &file){
+
+		try {
+
+			IGXI::File f(file, true);
+			return saveData(f, out);
+
+		} catch (std::runtime_error) {
+			return IGXI::ErrorMessage::SAVE_INVALID_FILE;
+		}
 	}
 
 	IGXI::ErrorMessage IGXI::load(const Buffer &buf, IGXI &out, const InputParams &ip) {
-		const BinaryLoader loader(buf);
-		return loadData(loader, out, ip);
+		BinaryFile file((Buffer&)buf);
+		return loadData(file, out, ip);
+	}
+
+
+	IGXI::ErrorMessage IGXI::save(const IGXI &in, Buffer &buf) {
+		BinaryFile file(buf);
+		return saveData(file, in);
 	}
 }

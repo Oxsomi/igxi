@@ -9,27 +9,31 @@ namespace igxi {
 
 		//A file loader
 		//Generally uses core2, otherwise remove it and add start/stop/readRegion yourself
-		struct FileLoader {
+		struct File {
 
 			struct Data;		//Implementation dependent data
 
 			const String file;	//File to read (application dependent)
 			Data *data;
 
-			FileLoader(const String &str) : file(str) {
-				start();
+			File(const String &str, bool isWritable) : file(str) {
+				start(isWritable);
 			}
 
-			~FileLoader() {
+			~File() {
 				stop();
 			}
-
-			void start();
-			void stop();
 
 			//Read a region of a file into an address; returns true if out of bounds
 			//Start has to be incremented with length by the implementation
 			bool readRegion(void *addr, usz &start, usz length) const;
+
+			//Write a region of a file into an address; returns true if it can't
+			//Start has to be incremented with length by the implementation
+			bool writeRegion(const void *addr, usz &start, usz length);
+
+			//Resize the file to fit a number of bytes
+			bool resize(usz length);
 
 			//Checks if a region is unavailable (true if out of bounds)
 			//Start has to be incremented with length by the implementation
@@ -38,6 +42,10 @@ namespace igxi {
 			//Get the size of a file (0 if non existent or if folder)
 			usz size() const;
 
+		private:
+
+			void start(bool isWritable);
+			void stop();
 		};
 
 		//Flags defined in the header;
@@ -74,7 +82,7 @@ namespace igxi {
 			ignis::TextureType type;
 			u8 mips;					//How many mips are used (< maxMips(w,h,l))
 
-			u8 signature[3] = { 0x44, 0x55, 0x66 };
+			u8 signature[3] { 0x44, 0x55, 0x66 };
 			u8 formats;					//How many formats are available (>0)
 
 		} header;
@@ -115,11 +123,21 @@ namespace igxi {
 
 		//Error messages
 		enum class ErrorMessage {
+
 			SUCCESS,
-			LOAD_INVALID_HEADER,			//IGXI has invalid header (might not be IGXI)
+			INVALID_HEADER,					//IGXI has invalid header (might not be IGXI)
+
+			LOAD_INVALID_FILE,
 			LOAD_INVALID_SIZE,				//IGXI has invalid size
 			LOAD_NO_AVAILABLE_FORMATS,		//There were no formats or none that matched
 			LOAD_INVALID_RANGE,				//Invalid range was requested
+
+			SAVE_INVALID_FILE,
+			SAVE_FILE_ACCESS,
+			SAVE_INVALID_FORMATS,
+			SAVE_INVALID_MIPS,
+			SAVE_INVALID_DATA_SIZE,
+			SAVE_NO_SPACE
 		};
 
 		//Input data
@@ -180,7 +198,11 @@ namespace igxi {
 		//Load from binary (always available)
 		static ErrorMessage load(const Buffer &buf, IGXI &out, const InputParams &ip);
 
-		//TODO: static ErrorMessage save();
+		//Write to file (see FileLoader)
+		static ErrorMessage save(const IGXI &in, const String &file);
+
+		//Save from struct
+		static ErrorMessage save(const IGXI &in, Buffer &buf);
 
 	};
 
